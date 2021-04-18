@@ -1,6 +1,6 @@
 # LWW-element-graphs study
 
-Using commutative interface operations simplifies the work of distributed 
+The use of commutative interface operations simplifies the work of distributed 
 systems designers [[ref](commutativity-sosp-13)]. Commutative replicated data 
 types (CRDTs) make the most use of this advantage by allowing the design of 
 distributed data structure that can continue operating during a temporary 
@@ -214,8 +214,8 @@ type Atom:
 The implementation also requires a monotonic clock in each process:
 
 ```
-type Clock:  -- Singleton within a process
-  nanoseconds() → Integer  -- The current time in nanoseconds
+type Clock:                            -- Singleton within a process
+  nanoseconds() → Integer              -- The current time in nanoseconds
   synchronize(ref: Integer)
 ```
 
@@ -256,10 +256,10 @@ type LWWGraph<Atom>:
 ```
 
 ```
-type Operation<Atom> =  -- A union type 
-  AddVertex(a: Atom, ts: int)    |
+type Operation<Atom> =                 -- A union type 
+  AddVertex(a: Atom, ts: int)          |
   AddEdge(e: Edge<Atom>, ts: int)      |
-  RemoveVertex(a: Atom, ts: int) |
+  RemoveVertex(a: Atom, ts: int)       |
   RemoveEdge(e: Edge<Atom>, ts: int)
 ```
 
