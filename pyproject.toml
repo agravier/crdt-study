@@ -1,15 +1,39 @@
 [tool.poetry]
 name = "crdt"
 version = "0.1.0"
-description = ""
+description = """An implementation of concurrent, commutative undirected graphs
+based on Last-Writer-Wins element sets"""
 authors = ["Alexandre Gravier <al.gravier@gmail.com>"]
+license = "Proprietary"
+packages = [
+    { include = "crdt" },
+]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 
 [tool.poetry.dependencies]
 python = "^3.9"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
+pylint = "^2.7.4"
+black = "^20.8b1"
+mypy = "^0.812"
+pytest-cov = "^2.11.1"
+pydantic = "^1.8.1"
+typer = "^0.3.2"
+rich = "^10.1.0"
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.pylint.BASIC]
+good-names="T,i,j,k,l,qi,li,ll,v,f,of,if,pf,d,wd,to,x,y,z"
+# i,j,k,l,qi,li,ll,v: indices and dict/list-related stuff
+# f,of,if,pf  : file, output file, input file, param file
+# d,wd,to: dir, working dir, target
+# x,y,z: math variables, zip file
