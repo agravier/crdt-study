@@ -1,5 +1,6 @@
 """This class offers an interface and an implementation for the operations that
-are serialized as part of """
+are serialized as part of the conflict-free, distributed usage of LWWSet and
+LWWGraph."""
 # pylint: disable=too-few-public-methods
 from typing import Any, Dict, Generic, Literal, TypeVar, Union
 

@@ -419,8 +419,21 @@ accompanies this exploration were as follows:
 
 #### Code layout
 
-Each module providing a functional interface with alternative implementation is
-created as a 
+Major modules providing a functional interface with alternative implementations 
+is are laid out as a folder module with:
+
+- an `interface.py` file containing the interface to implement (usually a
+  protocol or an abstract class),
+- an `impl/` submodule with one implementation of the interface per file, and
+- an `__init__.py` that exports the interface classes and each implementing 
+  class.  
+
+This the case for `crdt.lww_graph`, `crdt.lww_set`, `crdt.distributed` and 
+`crdt.clock`.
+
+Less central components may have both interface and implementation in a single
+Python file (e.g. `crdt.lww_graph.edge`, `crdt.distributed.operation`).
+
 
 #### Testing, packaging and dependencies
 
@@ -437,7 +450,33 @@ test scenarios for sample apps are described in Gherkin and run with _behave_.
 
 ### Coupling of serialization engine
 
+Pydantic makes JSON serialization easy, which is convenient for our 
+proof-of-concept. However:
+
+- It is a wasteful text format. Application-level compression can help to some
+  extent, but the right solution lies in a proper binary protocol like 
+  protobuf.
+  
+- I didn't take care to decouple the serialization engine from the objects
+  being serialized. Instead, I did the opposite and directly used Pydantic base
+  classes to benefit from the type safety and marshalling provided by Pydantic.
+  
+Doing otherwise correctly would have demanded far more time; this is a 
+trade-off I consciously chose to make.
+
+
 ### Relatively low performance of Python implementation
+
+### No effort to generate documentation
+
+I would usually do this with Sphinx, but it's a bit fiddly and getting the ReST
+right requires extra work that I don't have the time to invest.
+
+I should investigate simpler tools for Markdown-based API documentation 
+generation.
+
+
+### No continuous integration
 
 
 ## Appendix: How I made this project
@@ -455,7 +494,7 @@ pyenv install 3.9.4
 pyenv local 3.9.4
 git add .python-version
 git commit -m "Add pyenv marker for python version"
-poetry add --dev pylint black mypy pytest-cov pydantic typer rich
+poetry add --dev pylint black mypy pytest-cov Pydantic typer rich
 # ...
 ```
 
