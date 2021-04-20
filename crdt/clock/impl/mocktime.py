@@ -11,7 +11,8 @@ class MockMonotonicClock:
     def __init__(self, reference_time_now_ns: int) -> None:
         """Initialize this clock with a reference time.
 
-        :param reference_time_now_ns: reference time at the moment of creation
+        Params
+            reference_time_now_ns: reference time at the moment of creation
         """
         self.now = reference_time_now_ns
         self._step_size = 1

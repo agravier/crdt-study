@@ -1,6 +1,5 @@
 """This class offers an interface and an implementation for the operations that
-are serialized as part of the conflict-free, distributed usage of LWWSet and
-LWWGraph."""
+are serialized as part of the conflict-free, distributed usage of LWWGraph."""
 # pylint: disable=too-few-public-methods
 from typing import Any, Dict, Generic, Literal, TypeVar, Union
 
@@ -10,16 +9,6 @@ from pydantic.generics import GenericModel
 from crdt.lww_graph.edge import BaseEdge
 
 T = TypeVar("T")
-
-LWWSetOpName = Literal["add", "del"]
-
-
-class LWWSetOperation(GenericModel, Generic[T]):
-    """Serialized representation of an operation on a LWWSet"""
-
-    op: LWWSetOpName  # Operation name
-    arg: T  # Operation argument
-    ts: int  # Timestamp
 
 
 # We use the suffixes "_e" and "_v" to differentiate vertex and edge ops.

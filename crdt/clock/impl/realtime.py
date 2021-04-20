@@ -12,7 +12,8 @@ class MonotonicRealTimeClock:
         """Initialize this clock with a reference time. Due to the
         unpredictable execution duration, a negative skew is to be expected.
 
-        :param reference_time_now_ns: reference time at the moment of creation
+        Params
+            reference_time_now_ns: reference time at the moment of creation
         """
         self.zero = time.monotonic_ns()
         self.zero -= reference_time_now_ns

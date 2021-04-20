@@ -50,11 +50,16 @@ class BaseEdge(GenericModel, Edge[T]):
     def vertices(self) -> Tuple[T, T]:
         return self.a, self.b
 
+    @classmethod
+    def from_edge(cls, edge: Edge[T]) -> BaseEdge[T]:
+        a, b = edge.vertices
+        return BaseEdge(a=a, b=b)
+
     class Config:
         frozen = True
 
 
-class FrozenEdge(Generic[T]):
+class FrozenEdge(Edge[T]):
     """Edge implementation based on the built-in frozenset"""
 
     def __init__(self, a: T, b: T) -> None:
@@ -67,3 +72,7 @@ class FrozenEdge(Generic[T]):
         except ValueError:
             (first_elem,) = (second_elem,) = self._vertices
         return first_elem, second_elem
+
+    @classmethod
+    def from_edge(cls, edge: Edge[T]) -> FrozenEdge[T]:
+        return FrozenEdge(*edge.vertices)

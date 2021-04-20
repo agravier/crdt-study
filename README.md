@@ -223,10 +223,16 @@ The LWW-element-set functional interface as defined in the INRIA
 [paper](inria-paper):
 
 ```
+type LWWSetOperation<Atom> =           -- A union type 
+  Add(a: Atom, ts: int)                |
+  Remove(a: Atom, ts: int)
+```
+
+```
 type LWWSet<Atom>:
   clock: Clock
-  add(a: Atom)
-  remove(a: Atom)
+  add(a: Atom) → Add
+  remove(a: Atom) → Remove
   lookup(a: Atom) → Boolean
 ```
 
@@ -243,24 +249,24 @@ With Atoms representing vertices, we can now define the LWW-element-graph
 interface and the serialized LWW operations:
 
 ```
-type LWWGraph<Atom>:
-  clock: Clock
-  vertices: LWWSet<Atom>
-  edges: LWWSet<Edge<Atom>> 
-  add_vertex(a: Atom)
-  add_edge(e: Edge<Atom>)
-  remove_vertex(a: Atom)
-  remove_edge(e: Edge<Atom>)
-  lookup_vertex(a: Atom) → Boolean
-  lookup_edge(e: Edge<Atom>) → Boolean
-```
-
-```
-type Operation<Atom> =                 -- A union type 
+type LWWGraphOperation<Atom> = 
   AddVertex(a: Atom, ts: int)          |
   AddEdge(e: Edge<Atom>, ts: int)      |
   RemoveVertex(a: Atom, ts: int)       |
   RemoveEdge(e: Edge<Atom>, ts: int)
+```
+
+```
+type LWWGraph<Atom>:
+  clock: Clock                         -- The same clock as in each child LWWSet
+  vertices: LWWSet<Atom>
+  edges: LWWSet<Edge<Atom>> 
+  add_vertex(a: Atom) → AddVertex
+  add_edge(e: Edge<Atom>) → AddEdge
+  remove_vertex(a: Atom) → RemoveVertex
+  remove_edge(e: Edge<Atom>) → RemoveEdge
+  lookup_vertex(a: Atom) → Boolean
+  lookup_edge(e: Edge<Atom>) → Boolean
 ```
 
 Finally, we need processes to form a tree. In our simplified application, we
@@ -269,12 +275,14 @@ are content with a single level (one server →  many clients):
 ```
 type LWWGraphClient<Atom>:
   graph: LWWGraph<Atom>
-  associate(s: Server)
+  server: LWWGraphServer<Atom>
+  connect(s: LWWGraphServer<Atom>)
   update(Collection<Operation<Atom>>)  -- Receive an update from the server
 
-type LWWGraphServer:
+type LWWGraphServer<Atom>:
   graph: LWWGraph<Atom>
-  clients: Collection<Client>
+  clients: Collection<LWWGraphClient<Atom>>
+  register_client(LWWGraphClient<Atom>)
   update(Collection<Operation<Atom>>)  -- Receive an update from a client
 ```
 
@@ -282,8 +290,12 @@ type LWWGraphServer:
 ### Python immutable implementation of local process and backend server
 
 The immutable implementation is simple, easily auditable, but highly
-inefficient as it suffers from unbounded growth. Yet, it is useful as it
-provides a reference implementation and a performance baseline.
+inefficient as it suffers from unbounded growth even on a fixed size set or
+graph. Yet, it is useful as it provides a reference implementation and a
+performance baseline.
+
+Note: I call it "immutable" but it is not really immutable, it just does 
+nothing in the way of removing stale operations from its operations log.
 
 ### LSM-Tree based implementation of local process and backend server
 
@@ -486,12 +498,13 @@ Prerequisites: pyenv, poetry
 ```shell
 poetry new crdt-study --name crdt
 cd crdt-study
+# All the pyenv commands are only useful if cpython 3.9.4 is not installed
+pyenv install 3.9.4
+pyenv local 3.9.4  # This may not be needed
+poetry env use ~/.pyenv/versions/3.9.4/bin/python  # This may not be needed
 git init .
 git add *
 git commit -m "Create project structure"
-pyenv install --list | less
-pyenv install 3.9.4
-pyenv local 3.9.4
 git add .python-version
 git commit -m "Add pyenv marker for python version"
 poetry add --dev pylint black mypy pytest-cov Pydantic typer rich

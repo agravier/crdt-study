@@ -6,28 +6,28 @@ parents."""
 
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+from abc import abstractmethod
+from typing import Iterable, Protocol, TypeVar
 
-T = TypeVar("T", contravariant=True)
+from crdt.clock.interface import Clock
+from crdt.lww_set.operation import LWWSetOperation
+
+T = TypeVar("T")
 
 
-class MutableLWWSet(Protocol[T]):
+class LWWSet(Protocol[T]):
+    clock: Clock
+
+    @abstractmethod
+    @property
+    def elements(self) -> Iterable[T]:
+        ...
+
     def __contains__(self, item: T) -> bool:
         ...
 
-    def add(self, item: T) -> None:
+    def add(self, item: T) -> LWWSetOperation[T]:
         ...
 
-    def remove(self, item: T) -> None:
-        ...
-
-
-class ImmutableLWWSet(Protocol[T]):
-    def __contains__(self, item: T) -> bool:
-        ...
-
-    def add(self, item: T) -> ImmutableLWWSet[T]:
-        ...
-
-    def remove(self, item: T) -> ImmutableLWWSet[T]:
+    def remove(self, item: T) -> LWWSetOperation[T]:
         ...
