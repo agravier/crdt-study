@@ -2,6 +2,7 @@
 from typing import Optional
 
 # pylint: disable=missing-function-docstring
+from crdt.clock.interface import ClockError
 
 
 class MockMonotonicClock:
@@ -24,7 +25,8 @@ class MockMonotonicClock:
 
     @step_size.setter
     def step_size(self, step_size: int) -> None:
-        assert step_size >= 0, "The step size can't be negative"
+        if step_size < 0:
+            raise ClockError("The step size can't be negative")
         self._step_size = step_size
 
     @property
@@ -34,11 +36,13 @@ class MockMonotonicClock:
         return self.now + self.step_size
 
     @next_tick.setter
-    def next_tick(self, nanoseconds: int) -> None:
-        assert nanoseconds >= self.now, "The clock must be monotonic"
+    def next_tick(self, nanoseconds: Optional[int]) -> None:
+        if nanoseconds is not None and nanoseconds < self.now:
+            raise ClockError("The clock must be monotonic")
         self._next_tick = nanoseconds
 
     @property
     def nanoseconds(self) -> int:
         self.now = self.next_tick
+        self.next_tick = None  # type: ignore
         return self.now

@@ -32,9 +32,13 @@ profile = "black"
 multi_line_output = 3
 
 [tool.pylint.BASIC]
-good-names="T,i,j,k,l,qi,li,ll,v,f,of,if,pf,d,wd,to,x,y,z,s,c"
+good-names="T,i,j,k,l,qi,li,ll,v,f,of,if,pf,d,wd,to,x,y,z,s,c,op,a,b,t1,t2"
+# T: generic type
 # i,j,k,l,qi,li,ll,v: indices and dict/list-related stuff
 # f,of,if,pf  : file, output file, input file, param file
 # d,wd,to: dir, working dir, target
 # x,y,z: math variables, zip file
 # s,c: server, client
+# op: operation
+# a,b: the two vertices of an edge
+# t1,t2: timestamps

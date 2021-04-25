@@ -13,4 +13,4 @@ test:
 	poetry run isort --check-only $(python_dirs)
 	poetry run mypy --disallow-untyped-defs $(python_dirs)
 	poetry run pylint $(python_dirs)
-	poetry run pytest --cov-report term:skip-covered --cov=app 
+	poetry run pytest --cov-report term:skip-covered --cov=crdt

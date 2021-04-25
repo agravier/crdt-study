@@ -18,8 +18,8 @@ T = TypeVar("T")
 class LWWSet(Protocol[T]):
     clock: Clock
 
-    @abstractmethod
     @property
+    @abstractmethod
     def elements(self) -> Iterable[T]:
         ...
 

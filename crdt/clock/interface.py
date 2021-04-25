@@ -5,6 +5,11 @@ from abc import abstractmethod
 from typing import Protocol
 
 
+class ClockError(Exception):
+    """Raised when clock monotonicity is violated, or when the underlying
+    implementation fails"""
+
+
 class Clock(Protocol):
     @property
     @abstractmethod

@@ -20,10 +20,15 @@ class Edge(Generic[T]):
     """This abstract class defines equality and a hash function on undirected
     edges"""
 
-    @abstractmethod
     @property
+    @abstractmethod
     def vertices(self) -> Tuple[T, T]:
         ...
+
+    def __contains__(self, item: Any) -> bool:
+        """Check whether the argument is one of the vertices that form this
+        edge."""
+        return item in self.vertices
 
     def __hash__(self) -> int:
         a, b = self.vertices
@@ -50,8 +55,16 @@ class BaseEdge(GenericModel, Edge[T]):
     def vertices(self) -> Tuple[T, T]:
         return self.a, self.b
 
+    def __contains__(self, item: Any) -> bool:
+        """Check whether the argument is one of the vertices that form this
+        edge."""
+        # pylint: disable=consider-using-in
+        return item == self.a or item == self.b
+
     @classmethod
     def from_edge(cls, edge: Edge[T]) -> BaseEdge[T]:
+        if isinstance(edge, BaseEdge):
+            return edge
         a, b = edge.vertices
         return BaseEdge(a=a, b=b)
 
@@ -72,6 +85,11 @@ class FrozenEdge(Edge[T]):
         except ValueError:
             (first_elem,) = (second_elem,) = self._vertices
         return first_elem, second_elem
+
+    def __contains__(self, item: Any) -> bool:
+        """Check whether the argument is one of the vertices that form this
+        edge."""
+        return item in self._vertices
 
     @classmethod
     def from_edge(cls, edge: Edge[T]) -> FrozenEdge[T]:
