@@ -40,6 +40,12 @@ class LWWGraphClient(Protocol[T]):
     def remove_edge(self, item: Edge[T]) -> None:
         ...
 
+    def check_connected(self, a: T, b: T) -> bool:
+        ...
+
+    def find_path(self, a: T, b: T) -> List[Edge[T]]:
+        ...
+
 
 class LWWGraphServer(Protocol[T]):
 

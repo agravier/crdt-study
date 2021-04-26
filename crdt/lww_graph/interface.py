@@ -7,12 +7,26 @@ parents."""
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Iterable, Mapping, Optional, Protocol, Set, TypeVar, Union
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Set,
+    TypeVar,
+    Union,
+)
 
-from crdt.lww_graph.edge import Edge
+from crdt.lww_graph.edge import Edge, FrozenEdge
 from crdt.lww_graph.operation import LWWGraphOperation
 
 T = TypeVar("T")
+
+
+class LWWGraphError(Exception):
+    pass
 
 
 class LWWGraph(Protocol[T]):
@@ -61,3 +75,34 @@ class LWWGraph(Protocol[T]):
         self, edge: Edge[T], ts: Optional[int] = None
     ) -> LWWGraphOperation[T]:
         ...
+
+
+def _backtrack(backtracking_map: Dict[T, T], end: T, start: T) -> List[Edge[T]]:
+    reverse_path = []
+    prev = end
+    while end != start:
+        end = backtracking_map[end]
+        reverse_path.append(FrozenEdge(end, prev))
+        prev = end
+    return list(reversed(reverse_path))
+
+
+def find_shortest_path(graph: LWWGraph[T], a: T, b: T) -> Optional[List[Edge[T]]]:
+    try:
+        component = next(c for c in graph.components if a in c)
+    except StopIteration:
+        return None
+    if b not in component:
+        return None
+    backtrack_link: Dict[T, T] = {}
+    explored: Set[T] = set()
+    explore_queue: List[T] = [a]
+    while explore_queue:
+        node = explore_queue.pop(0)  # BFS
+        if node == b:
+            return _backtrack(backtracking_map=backtrack_link, end=b, start=a)
+        explored.add(node)
+        children = [c for c in component[node] if c not in explored]
+        backtrack_link.update({c: node for c in children})
+        explore_queue.extend(children)
+    raise LWWGraphError(f"Malformed graph component map: {graph.components}")

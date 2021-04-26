@@ -44,6 +44,9 @@ class Edge(Generic[T]):
             return (a1 == a2 and b1 == b2) or (a1 == b2 and b1 == a2)
         return False
 
+    def __str__(self) -> str:
+        return f"Edge{self.vertices}"
+
 
 class BaseEdge(GenericModel, Edge[T]):
     """Serializable edge implementation based on BaseModel"""
@@ -100,3 +103,5 @@ class FrozenEdge(Edge[T]):
 
     __hash__ = Edge.__hash__
     __eq__ = Edge.__eq__
+    __str__ = Edge.__str__
+    __repr__ = Edge.__str__

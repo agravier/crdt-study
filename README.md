@@ -1,5 +1,52 @@
 # LWW-element-graphs study
 
+## TL;DR
+
+This repo contains a simple implementation of LWW-element-graphs (as well as
+the simpler LWW-element-set). The most important bits are:
+
+```
+├── Makefile                      -- Used for formatting and testing 
+├── README.md                     -- Explains things 
+├── crdt                          -- The main package
+│   ├── clock                     -- Clocks are important in distibuted systems. So, here too.
+│   │   ├── impl                  -- These are the implementations of our abstract clock 
+│   │   │   ├── mocktime.py       -- One clock for testing,
+│   │   │   └── realtime.py       -- and one clock for real.
+│   │   └── interface.py          -- This is our abstract clock interface.
+│   ├── distributed               -- This is where the client and server componenets would be if I had found the time to write them
+│   ├── lww_graph
+│   │   ├── edge.py               -- Where the abstraction of an edge between two vertices is defined and implemented
+│   │   ├── impl                        
+│   │   │   └── log_lww_graph.py  -- There be dragons, and also the append-only log-based implementation of LWW-element-graph
+│   │   ├── interface.py          -- Where the interface that all LWW-element-graphs must follow is defined
+│   │   └── operation.py          -- Serializations of the 4 types of operations that can be applied to a LWW-element-graph
+│   └── lww_set                   -- I also did LWW-element-sets, just because.
+└── tests                         -- Read them, run them!
+    ├── clock                     -- Clock tests. I put tests for a module in a module named after that module. Such modularity. Very module.
+    ├── lww_graph
+    │   └── test_lww_graph.py     -- This is the file that shows that everything works as intended.
+    └── lww_set                   -- You know the drill. Module. Tests. Thumbs up.
+```
+
+It is easier to run those things with [Poetry](poetry-web), and python 3.9 or 
+later, which poetry should find if it's installed. If it's not, I recommend 
+using [pyenv](https://github.com/pyenv/pyenv-installer) to manage python 
+versions.
+
+With those pre-requisites, you can run 
+
+- `poetry install` to set everything else up and 
+- `make pytest` to run the tests defined in _tests/_. 
+- `make all` will format, lint, typecheck and run pytest. 
+
+The rest of the README below consists mostly in a detailed discussion of the 
+uses, design, implementation and optimization of LWW-element-graphs. It 
+illustrates how I would probably further develop it. I had no time to 
+implement most of the points discussed.
+
+## Intro
+
 The use of commutative interface operations simplifies the work of distributed 
 systems designers [[ref](commutativity-sosp-13)]. Commutative replicated data 
 types (CRDTs) make the most use of this advantage by allowing the design of 
@@ -171,9 +218,9 @@ therefore I will only shortly explain its principle here.
 ### LWW-element-graph design
 
 The LWW-element-graph is not defined in the INRIA paper, but as its name
-indicates, it is a CR graph in which operations are logically totally ordered
-by their timestamp. Here, we only consider the simple case of undirected
-graphs.
+indicates, it is a conflict-free replicated graph in which operations are
+logically totally ordered by their timestamp. Here, we only consider the simple
+case of undirected graphs.
 
 Mathematically, graphs are defined by two sets: the vertices, and the edges
 connecting them. The semantics of a series of vertex and edge additions and
@@ -203,7 +250,7 @@ When a process receives a vertex deletion operation, we can choose to:
    creation command.
    
 The semantics described in (1.) will be implemented in this exploration because 
-they are intuitive and achievable, whereas (2.) is implementable without global 
+they are intuitive and achievable, whereas (2.) is not implementable without global 
 sync, and (3.) is unintuitive.
 
 To understand how much cascading effect the semantics in point (1.) can have 
@@ -225,7 +272,8 @@ re-interpret past history in the event of a cascading update, we must know the
 timestamps of the last deletion `D` and of the last addition `A` of each edge
 and each vertex. We can prove that no further history than the last deletion
 and last addition is required by induction, considering each case (locally, `A`
-happened before `D`, `D` before `A`, `A` only, etc).
+happened before `D`, `D` before `A`, `A` only, etc). The proof is left as an 
+exercise.
 
 For collaborative applications where vertices are mainly characterized by their
 identity (_Graphviz Online_), the constraints of the LWW-element-graph can not
@@ -248,7 +296,11 @@ Hence, in collaborative creative applications, an `add_point` operation at
 application level should always use `vertex_set.add` with a new atom containing
 a globally unique new identifier.
 
-In this exploration, we consider the more general case.
+In this exploration, we consider the more general case. We also take the
+decision that, for the same timestamp and edge or vertex, deletions take
+precedence over additions. Finally, we allow adding or removing an edge between
+a vertex and itself. These arbitrary decision can easily be changed without
+fundamentally affecting the difficulty of the problem.
 
 ## Implementation
 
@@ -358,19 +410,19 @@ inefficient as it suffers from unbounded growth even on a fixed size set or
 graph. Yet, it is useful as it provides a reference implementation and a
 performance baseline.
 
-Note: I call it "immutable", but it is not really immutable, it just does 
+Note: We call it "immutable", but it is not really immutable, it just does 
 nothing in the way of removing stale operations from its operations log.
-
 
 ### Python last-operation tracking implementation
 
-
 This implementation of LWW-element-graph only tracks the last `add` and the 
-last `remove` operation for each vertex or edge.
+last `remove` operation for each vertex or edge. No more information is needed
+to determine the state of the system at the latest clock operation, even in the
+presence of arbitrary post-hoc updates. 
 
 ### LSM-Tree based implementation of local process and backend server
 
-Log-structured merge trees are datastructures that support a high write 
+Log-structured merge trees are data structures that support a high write 
 throughput and are naturally suited to LWW strategies. They are particularly 
 suitable when the reads are sporadic and writes are frequent.
 
@@ -382,20 +434,30 @@ Unfortunately, althought the Python library is maintained, the SQLite 4
 implementation of LSM Trees has not been ported to SQLite 3. So the risk of 
 deprecation is high, and I didn't invest time in trying it out.
 
-Instead, I created a simple SQLite table indexed on elements and timestamps,
-which benefiting from fast insertion and retrieval. Regular compaction remains
-necessary and moderately expensive, in the form of a query that resolves the 
-latest state and writes it to a new file. 
-
-```sqlite
-CREATE INDEX key_ts_idx ON op_log(element, ts);
-```
+Instead, I would create a simple SQLite table indexed on elements and 
+timestamps, which benefiting from fast insertion and retrieval. Regular 
+compaction remains necessary and moderately expensive, in the form of a query 
+that resolves the  latest state and writes it to a new file. 
 
 ### Redis backend
 
+A process could make use of a local Redis instance to support higher
+throughput. The idea would be to request the latest timestamp (value) of a
+vertex or edge (key) for a
+particular add or remove operation (collection)
+
+We would only prune the operations log sporadically, keeping only the latest 
+value for each key and operation.
+
+This is particularly suitable for graphs with relatively infrequent updates of 
+the same item, but a very large item space.
 
 ### Elixir backend
 
+Elixir seems suited to implement a robust solution to concurrently serve many 
+(in the low millions) distinct graphs, as in a collaborative online 
+end-user document editing application. For instance, LWWGraphServer seems 
+suitable to be implemented with Phoenix channels. 
 
 ### Clocks
 
@@ -405,7 +467,7 @@ correctly tracking a reference clock at the (distributed) system level over a
 sporadic connection is not possible. We have accept some level of compromise.
 
 To alleviate the problem, we devise a simple application clock synchronization 
-protocol:
+protocol rather similar to the core NTP algorithm:
 
 - The synchronization backend sends "timesync" messages containing the global
   application timestamp to each client. This global timestamp is sent to all
@@ -455,20 +517,10 @@ single brush stroke would be cached and concurrently processed by the local
 LWW-element-graph while another, independent brush stroke could be applied to
 the canvas by the user.
 
-#### Checklist
-
-[quiescent consistency] Does the design ensure conflict-free eventual 
-consistency between all nodes without synchronization? 
-
-[theoretical memory bounds] Does the design suffer from worst-case unbounded 
-growth in degenerate cases where operations cancelling each other are applied 
-a functionally constant-size object? (In other words, does garbage collection 
-require synchronization?)
-
 
 ## Software package implementation
 
-The overall principles and steps by which I worked the software that
+The overall principles and steps that I followed to produce the software that
 accompanies this exploration were as follows:
 
 - _Correctness first_. I will produce less features, but they will be correct.
@@ -515,20 +567,21 @@ is are laid out as a folder module with:
 This the case for `crdt.lww_graph`, `crdt.lww_set`, `crdt.distributed` and 
 `crdt.clock`.
 
-Less central components may have both interface and implementation in a single
-Python file (e.g. `crdt.lww_graph.edge`, `crdt.distributed.operation`).
+Less central and smaller components may have both interface and implementation
+in a single Python file (e.g. `crdt.lww_graph.edge`,
+`crdt.distributed.operation`).
 
 
 #### Testing, packaging and dependencies
 
-This is a library. Although I created an application to test it, the tests are
-not packaged with the library, so all the application-specific libraries are
-marked as development-only. Hence, the packaged library is rather lightweight
-in terms of dependencies. This is generally a pattern that I favor.
+This is a library. Although I intend to create an application to test it, the
+tests are not packaged with the library, so all the application-specific
+libraries are marked as development-only. Hence, the packaged library is rather
+lightweight in terms of dependencies. This is generally a pattern that I favor.
 
 Unit tests are run with _pytest_. Coverage is measured with _pytest-cov_. BDD
 test scenarios for sample apps are described in Gherkin and run with _behave_.
-
+(Note that I didn't have time to write end-to-end tests)
 
 ## Critical discussion
 
@@ -551,6 +604,19 @@ trade-off I consciously chose to make.
 
 ### Relatively low performance of Python implementation
 
+I only created the first of the list of implementations proposed above. It 
+records all operations in a log that it sorts and interprets each time one of 
+the graph-theoretic properties is accessed.
+
+The reason why all operations are appended with no effort keep the log sorted 
+by operation timestamp is that this implementation is a simple baseline. The 
+append-only log allows to directly see the real-time sequence of insertions, 
+and the simplicity of the implementation together with the unit tests lets us
+use this implementation as a correctness reference when comparing it to others.
+
+It also useful as a performance lower bound in terms of execution speed and 
+memory consumption.
+
 ### No effort to generate documentation
 
 I would usually do this with Sphinx, but it's a bit fiddly and getting the ReST
@@ -559,9 +625,16 @@ right requires extra work that I don't have the time to invest.
 I should investigate simpler tools for Markdown-based API documentation 
 generation.
 
+### No implementation of server and client processes
+
+I had no time to implement the client/server architecture described.
+
+However, the tests show that the LWWGraph implementation is not sensitive to
+operations insertion order, which is the major point of the CRDT.
 
 ### No continuous integration
 
+I had no need for that, but in a collaborative environment, it's very useful.
 
 ## Appendix: How I made this project
 
@@ -588,6 +661,7 @@ poetry add --dev pylint black mypy pytest-cov Pydantic typer rich
 
 [comment]: <> (References)
 
+[poetry-web]: https://python-poetry.org/ "Poetry website"
 [commutativity-sosp-13]: https://dl.acm.org/doi/10.1145/2517349.2522712 "The scalable commutativity rule: designing scalable software for multicore processors"
 [inria-paper]: https://hal.inria.fr/inria-00555588/en/  "A comprehensive study of Convergent and Commutative Replicated Data Types"
 [triangulation-swarm]: https://doi.org/10.1109/SSRR.2007.4381290 "Localization Using Triangulation in Swarms of Autonomous Rescue Robots"

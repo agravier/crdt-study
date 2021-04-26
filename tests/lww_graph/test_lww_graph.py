@@ -13,7 +13,7 @@ import pytest
 from crdt.clock.impl.mocktime import MockMonotonicClock
 from crdt.lww_graph.edge import FrozenEdge
 from crdt.lww_graph.impl.log_lww_graph import LogLWWGraph
-from crdt.lww_graph.interface import LWWGraph
+from crdt.lww_graph.interface import LWWGraph, find_shortest_path
 
 
 def make_new_instance_of_each_impl() -> List[LWWGraph]:
@@ -228,3 +228,97 @@ def test_components_via_interface__unordered(
             },
         ],
     )
+    graph.add_edge(edge("arm 4", "arm 4"), ts=1010)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": set(),
+            },
+            {
+                "arm 2": set(),
+            },
+            {
+                "arm 3": set(),
+            },
+            {
+                "arm 4": {"arm 4"},
+            },
+            {
+                "arm 5": set(),
+            },
+        ],
+    )
+    graph.add_vertex("centre", ts=1001)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": set(),
+            },
+            {
+                "arm 2": {"centre"},
+                "arm 3": {"centre"},
+                "arm 4": {"centre", "arm 4"},
+                "arm 5": {"centre"},
+                "centre": {"arm 2", "arm 3", "arm 5", "arm 4"},
+            },
+        ],
+    )
+    graph.remove_vertex("arm 4", ts=1010)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": set(),
+            },
+            {
+                "arm 2": {"centre"},
+                "arm 3": {"centre"},
+                "arm 5": {"centre"},
+                "centre": {"arm 2", "arm 3", "arm 5"},
+            },
+        ],
+    )
+
+
+@pytest.mark.parametrize("graph", make_new_instance_of_each_impl())
+def test_find_shortest_path(
+    graph: LWWGraph[int],
+) -> None:
+    """Test the function to find the shortest path between two vertices."""
+    graph.add_vertex(1)
+    graph.add_vertex(2)
+    graph.add_vertex(3)
+    graph.add_vertex(4)
+    graph.add_vertex(5)
+    graph.add_edge(edge(1, 2))
+    graph.add_edge(edge(2, 3))
+    graph.add_edge(edge(3, 4))
+    graph.add_edge(edge(3, 5))
+    assert find_shortest_path(graph=graph, a=1, b=5) == [
+        edge(1, 2),
+        edge(2, 3),
+        edge(3, 5),
+    ]
+    graph.add_vertex(10)
+    graph.add_vertex(20)
+    graph.add_vertex(30)
+    graph.add_vertex(40)
+    graph.add_vertex(50)
+    graph.add_vertex(60)
+    graph.add_edge(edge(10, 20))
+    graph.add_edge(edge(20, 30))
+    graph.add_edge(edge(30, 40))
+    graph.add_edge(edge(40, 50))
+    graph.add_edge(edge(50, 60))
+    assert find_shortest_path(graph=graph, a=20, b=60) == [
+        edge(20, 30),
+        edge(30, 40),
+        edge(40, 50),
+        edge(50, 60),
+    ]
+    assert find_shortest_path(graph=graph, a=2, b=50) is None
+    assert find_shortest_path(graph=graph, a=1, b=1) == []
+    assert find_shortest_path(graph=graph, a=1000, b=50) is None
+    assert find_shortest_path(graph=graph, a=1, b=5000) is None
