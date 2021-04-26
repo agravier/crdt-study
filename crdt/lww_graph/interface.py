@@ -7,7 +7,7 @@ parents."""
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Iterable, Optional, Protocol, TypeVar, Union
+from typing import Iterable, Mapping, Optional, Protocol, Set, TypeVar, Union
 
 from crdt.lww_graph.edge import Edge
 from crdt.lww_graph.operation import LWWGraphOperation
@@ -36,6 +36,12 @@ class LWWGraph(Protocol[T]):
     @abstractmethod
     def edges(self) -> Iterable[Edge[T]]:
         ...
+
+    @property
+    @abstractmethod
+    def components(self) -> Iterable[Mapping[T, Set[T]]]:
+        """Return an iterable of all graph components. Each component is
+        represented by a mapping from each vertex to its incident edges."""
 
     def __contains__(self, item: Union[T, Edge[T]]) -> bool:
         ...

@@ -5,7 +5,8 @@
 - query for all vertices connected to a vertex,
 - find any path between two vertices,
 - merge with concurrent changes from other graph/replica."""
-from typing import Any, List
+from typing import Any, Iterable, List
+from unittest import TestCase
 
 import pytest
 
@@ -26,6 +27,11 @@ def make_new_instance_of_each_impl() -> List[LWWGraph]:
 def edge(a: Any, b: Any) -> FrozenEdge:
     """Convenience function to create an edge between two atoms"""
     return FrozenEdge(a, b)
+
+
+def assert_same_counts(first: Iterable, second: Iterable, message: str = None) -> None:
+    """Convenience wrapper around TestCase.assertCountEqual"""
+    return TestCase().assertCountEqual(first, second, msg=message)
 
 
 @pytest.mark.parametrize("graph", make_new_instance_of_each_impl())
@@ -113,3 +119,112 @@ def test_correctness_via_interface__unordered(
     assert set(graph.edges) == set()
     graph.add_edge(edge=edge(1, 2), ts=201)
     assert set(graph.edges) == {edge(1, 2)}
+
+
+@pytest.mark.parametrize("graph", make_new_instance_of_each_impl())
+def test_components_via_interface__unordered(
+    graph: LWWGraph[str],
+) -> None:
+    """Run simple tests of the correctness of the graph components for each
+    implementation of LWWGraph."""
+    assert_same_counts(graph.components, [])
+    graph.add_edge(edge("arm 1", "centre"), ts=1000)
+    assert_same_counts(graph.components, [])
+    graph.add_vertex("arm 1", ts=100)
+    assert_same_counts(graph.components, [{"arm 1": set()}])
+    graph.add_edge(edge("arm 3", "centre"), ts=1003)
+    assert_same_counts(graph.components, [{"arm 1": set()}])
+    graph.add_edge(edge("arm 5", "centre"), ts=1005)
+    assert_same_counts(graph.components, [{"arm 1": set()}])
+    graph.add_vertex("arm 2", ts=100)
+    assert_same_counts(graph.components, [{"arm 1": set()}, {"arm 2": set()}])
+    graph.add_vertex("centre", ts=1000)
+    assert_same_counts(
+        graph.components, [{"arm 1": {"centre"}, "centre": {"arm 1"}}, {"arm 2": set()}]
+    )
+    graph.add_vertex("arm 3", ts=100)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": {"centre"},
+                "arm 3": {"centre"},
+                "centre": {"arm 1", "arm 3"},
+            },
+            {"arm 2": set()},
+        ],
+    )
+    graph.add_edge(edge("arm 2", "centre"), ts=1002)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": {"centre"},
+                "arm 2": {"centre"},
+                "arm 3": {"centre"},
+                "centre": {"arm 1", "arm 2", "arm 3"},
+            },
+        ],
+    )
+    graph.add_vertex("arm 4", ts=100)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": {"centre"},
+                "arm 2": {"centre"},
+                "arm 3": {"centre"},
+                "centre": {"arm 1", "arm 2", "arm 3"},
+            },
+            {"arm 4": set()},
+        ],
+    )
+    graph.add_vertex("arm 5", ts=900)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": {"centre"},
+                "arm 2": {"centre"},
+                "arm 3": {"centre"},
+                "arm 5": {"centre"},
+                "centre": {"arm 1", "arm 2", "arm 3", "arm 5"},
+            },
+            {"arm 4": set()},
+        ],
+    )
+    graph.add_edge(edge("arm 4", "centre"), ts=1004)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": {"centre"},
+                "arm 2": {"centre"},
+                "arm 3": {"centre"},
+                "arm 4": {"centre"},
+                "arm 5": {"centre"},
+                "centre": {"arm 1", "arm 2", "arm 3", "arm 5", "arm 4"},
+            },
+        ],
+    )
+    graph.remove_vertex("centre", ts=1000)
+    assert_same_counts(
+        graph.components,
+        [
+            {
+                "arm 1": set(),
+            },
+            {
+                "arm 2": set(),
+            },
+            {
+                "arm 3": set(),
+            },
+            {
+                "arm 4": set(),
+            },
+            {
+                "arm 5": set(),
+            },
+        ],
+    )
