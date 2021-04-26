@@ -152,7 +152,7 @@ problem (see [Clocks](#clocks) section below), and, to some extent, reduces the
 impact of a simple class of attacks around forged future timestamps.
 
 
-### LWW element set design
+### Preliminary work: LWW-element-set design
 
 The LWW-element-set is fully specified in the [reference paper](inria-paper),
 therefore I will only shortly explain its principle here.
@@ -168,9 +168,64 @@ therefore I will only shortly explain its principle here.
   - a `remove(atom)` method, generating a _⟨ remove(atom), ts ⟩_ operation
 
 
-### LWW graph design
+### LWW-element-graph design
 
-The LWW-element-graph
+The LWW-element-graph is not defined in the INRIA paper, but as its name
+indicates, it is a CR graph in which operations are logically totally ordered
+by their timestamp. Here, we only consider the simple case of undirected
+graphs.
+
+Mathematically, graphs are defined by two sets: the vertices, and the edges
+connecting them. The semantics of a series of vertex and edge additions and
+removals are particularly not self-evident in a distributed data structure.
+Therefore, we first consider the algorithmic constraints that more natural
+semantics impose, before giving some more thoughts about possible relaxations
+of the contraints in the context of some of our example applications.
+
+When a process receives a vertex deletion operation, we can choose to:
+
+1. Simultaneously delete all the edges that contain that node; these edges
+   would then need to be re-created individually once the vertex is created 
+   again. These semantics are rather intuitive as they correspond to end users'
+   usual experience in common graph-manipulating applications; for instance, 
+   deleting a vertex in Inkscape removes all edges that contained it.
+   
+2. Reject the operation if edges exist that contain the vertex (edges would 
+   need to have been deleted first). The existence of edges that contain the 
+   vertex is a glocal constraint, which generally cannot be determined without 
+   global synchronization. However natural these semantics are, they can't be 
+   implemented within the constraints of our distributed, lock and 
+   conflict-free system.
+   
+3. Mark the edges as invalid until the same node is re-created. When it is 
+   re-created, edges that existed before its deletion and that had been marked
+   invalid are marked valid again and re-created without a new explicit edge 
+   creation command.
+   
+The semantics described in (1.) will be implemented in this exploration because 
+they are intuitive and achievable, whereas (2.) is implementable without global 
+sync, and (3.) is unintuitive.
+
+To understand how much cascading effect the semantics in point (1.) can have 
+and try to place an upper bound on how much history must be retained, we will
+conduct and analyse some thought experiments. 
+
+> Let us imagine that a vertex `d` was deleted locally in some process at
+`t=5`, which cascaded into the deletion of to all edges (`a-d, b-d, d-d` in
+this local process) that contained it. At `t=10`, edge `b-d` was added back,
+but the operation was unsuccessful as node `d` does not exist anymore at that
+point in logical time. Later (in execution time), a message from a remote
+process informs us that `d` had actually added again at `t=8` in another
+process. In view of this new information, our local process must now
+re-consider and validate the `b-d` edge creation at`t=10`.
+
+Vertex deletions have cascading effect on connected edges, including
+potentially unknown, remote edges. Therefore, to be able to correctly
+re-interpret past history in the event of a cascading update, we must know the
+timestamps of the last deletion `D` and of the last addition `A` of each edge
+and each vertex. We can prove that no further history than the last deletion
+and last addition is required by induction, considering each case (locally, `A`
+happened before `D`, `D` before `A`, `A` only, etc).
 
 For collaborative applications where vertices are mainly characterized by their
 identity (_Graphviz Online_), the constraints of the LWW-element-graph can not
@@ -189,9 +244,11 @@ a structure that is independent of other structures. A vertex' exact
 coordinates may accidentally happen to overlap with the exact coordinates of a
 vertex in another independent structure, and it would be allowed.
 
-Hence, an `add_point` operation at application level should always use
-`vertex_set.add` with a new atom containing a globally unique new identifier.
- 
+Hence, in collaborative creative applications, an `add_point` operation at
+application level should always use `vertex_set.add` with a new atom containing
+a globally unique new identifier.
+
+In this exploration, we consider the more general case.
 
 ## Implementation
 
@@ -236,6 +293,9 @@ type LWWSet<Atom>:
   lookup(a: Atom) → Boolean
 ```
 
+Now, the `LWWGraph` will be similar, but reflect the operations expected from a
+graph.
+
 Edges are serializable, unordered pairs of atoms. Assuming that `Pair<A>` is a 
 suitable type to represents an unordered pair, we have:
 
@@ -258,9 +318,9 @@ type LWWGraphOperation<Atom> =
 
 ```
 type LWWGraph<Atom>:
-  clock: Clock                         -- The same clock as in each child LWWSet
-  vertices: LWWSet<Atom>
-  edges: LWWSet<Edge<Atom>> 
+  clock: Clock
+  vertices: Set<Atom>
+  edges: Set<Edge<Atom>> 
   add_vertex(a: Atom) → AddVertex
   add_edge(e: Edge<Atom>) → AddEdge
   remove_vertex(a: Atom) → RemoveVertex
@@ -286,6 +346,10 @@ type LWWGraphServer<Atom>:
   update(Collection<Operation<Atom>>)  -- Receive an update from a client
 ```
 
+These are just the fundamental operations, we will build on them to provide
+graph theoretical operations such as graph components extraction and 
+pathfinding.
+
 
 ### Python immutable implementation of local process and backend server
 
@@ -294,13 +358,21 @@ inefficient as it suffers from unbounded growth even on a fixed size set or
 graph. Yet, it is useful as it provides a reference implementation and a
 performance baseline.
 
-Note: I call it "immutable" but it is not really immutable, it just does 
+Note: I call it "immutable", but it is not really immutable, it just does 
 nothing in the way of removing stale operations from its operations log.
+
+
+### Python last-operation tracking implementation
+
+
+This implementation of LWW-element-graph only tracks the last `add` and the 
+last `remove` operation for each vertex or edge.
 
 ### LSM-Tree based implementation of local process and backend server
 
 Log-structured merge trees are datastructures that support a high write 
-throughput and are naturally suited to LWW strategies.
+throughput and are naturally suited to LWW strategies. They are particularly 
+suitable when the reads are sporadic and writes are frequent.
 
 ### SQLite-based implementation of local process and backend server
 

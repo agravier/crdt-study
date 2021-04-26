@@ -18,7 +18,7 @@ def make_new_instance_of_each_impl() -> List[LWWSet]:
 
 
 @pytest.mark.parametrize("lww_set", make_new_instance_of_each_impl())
-def test_correctness_via_interface(
+def test_correctness_via_interface__ordered(
     lww_set: LWWSet[int],
 ) -> None:
     """Run simple correctness tests on each implementation of LWWSet."""
@@ -41,3 +41,26 @@ def test_correctness_via_interface(
     assert set(lww_set.elements) == {1}
     lww_set.remove(item=1)
     assert set(lww_set.elements) == set()
+
+
+@pytest.mark.parametrize("lww_set", make_new_instance_of_each_impl())
+def test_correctness_via_interface__unordered(
+    lww_set: LWWSet[int],
+) -> None:
+    """Run simple correctness tests on each implementation of LWWSet."""
+    assert len(set(lww_set.elements)) == 0, "New set should be empty"
+    lww_set.remove(item=1, ts=50)
+    assert set(lww_set.elements) == set()
+    lww_set.add(item=1, ts=0)
+    assert set(lww_set.elements) == set()
+    # The remove operation takes precedence in case of conflict
+    lww_set.add(item=1, ts=50)
+    assert set(lww_set.elements) == set()
+    lww_set.add(item=1, ts=51)
+    assert set(lww_set.elements) == {1}
+    lww_set.add(item=2, ts=30)
+    assert set(lww_set.elements) == {1, 2}
+    lww_set.remove(item=2, ts=30)
+    assert set(lww_set.elements) == {1}
+    lww_set.add(item=2, ts=300)
+    assert set(lww_set.elements) == {1, 2}

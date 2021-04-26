@@ -7,7 +7,7 @@ parents."""
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Iterable, Protocol, TypeVar
+from typing import Iterable, Optional, Protocol, TypeVar
 
 from crdt.clock.interface import Clock
 from crdt.lww_set.operation import LWWSetOperation
@@ -16,6 +16,10 @@ T = TypeVar("T")
 
 
 class LWWSet(Protocol[T]):
+    """Interface for LWW-element-set implementations. Besides the interface
+    contract, note that in case of conflicting add and remove (with the same
+    timestamp), the remove operation takes precedence."""
+
     clock: Clock
 
     @property
@@ -26,8 +30,8 @@ class LWWSet(Protocol[T]):
     def __contains__(self, item: T) -> bool:
         ...
 
-    def add(self, item: T) -> LWWSetOperation[T]:
+    def add(self, item: T, ts: Optional[int] = None) -> LWWSetOperation[T]:
         ...
 
-    def remove(self, item: T) -> LWWSetOperation[T]:
+    def remove(self, item: T, ts: Optional[int] = None) -> LWWSetOperation[T]:
         ...

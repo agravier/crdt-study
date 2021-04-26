@@ -28,6 +28,7 @@ class LWWGraphClient(Protocol[T]):
         ...
 
     def add_vertex(self, item: T) -> None:
+        """Called locally to register an operation"""
         ...
 
     def add_edge(self, item: Edge[T]) -> None:

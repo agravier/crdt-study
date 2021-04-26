@@ -68,6 +68,9 @@ class BaseEdge(GenericModel, Edge[T]):
         a, b = edge.vertices
         return BaseEdge(a=a, b=b)
 
+    __hash__ = Edge.__hash__
+    __eq__ = Edge.__eq__
+
     class Config:
         frozen = True
 
@@ -94,3 +97,6 @@ class FrozenEdge(Edge[T]):
     @classmethod
     def from_edge(cls, edge: Edge[T]) -> FrozenEdge[T]:
         return FrozenEdge(*edge.vertices)
+
+    __hash__ = Edge.__hash__
+    __eq__ = Edge.__eq__

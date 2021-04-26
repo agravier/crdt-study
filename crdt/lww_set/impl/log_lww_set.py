@@ -1,5 +1,5 @@
 """Simplistic LWW-element-set implementation based on append-only log"""
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 from crdt.clock.interface import Clock
 from crdt.functools.typing import assert_never
@@ -40,16 +40,14 @@ class LogLWWSet(LWWSet[T]):
     def __contains__(self, item: T) -> bool:
         return item in set(self.elements)
 
-    def add(self, item: T) -> LWWSetOperation[T]:
-        op: LWWSetOperation[T] = LWWSetOperation(
-            op="add", arg=item, ts=self.clock.nanoseconds
-        )
+    def add(self, item: T, ts: Optional[int] = None) -> LWWSetOperation[T]:
+        ts = ts if ts is not None else self.clock.nanoseconds
+        op: LWWSetOperation[T] = LWWSetOperation(op="add", arg=item, ts=ts)
         self._oplog.append(op)
         return op
 
-    def remove(self, item: T) -> LWWSetOperation[T]:
-        op: LWWSetOperation[T] = LWWSetOperation(
-            op="del", arg=item, ts=self.clock.nanoseconds
-        )
+    def remove(self, item: T, ts: Optional[int] = None) -> LWWSetOperation[T]:
+        ts = ts if ts is not None else self.clock.nanoseconds
+        op: LWWSetOperation[T] = LWWSetOperation(op="del", arg=item, ts=ts)
         self._oplog.append(op)
         return op

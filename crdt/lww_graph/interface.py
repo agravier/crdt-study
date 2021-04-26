@@ -7,7 +7,7 @@ parents."""
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Iterable, Protocol, TypeVar, Union
+from typing import Iterable, Optional, Protocol, TypeVar, Union
 
 from crdt.lww_graph.edge import Edge
 from crdt.lww_graph.operation import LWWGraphOperation
@@ -16,6 +16,17 @@ T = TypeVar("T")
 
 
 class LWWGraph(Protocol[T]):
+    """Interface for LWW-element-graph implementations.
+
+    - Besides the interface contract, note that in case of conflicting add and
+    remove (with the same timestamp) of an edge or vertex, the remove operation
+    takes precedence.
+
+    - Also note that vertex deletions remove all edges that contain the vertex.
+    Finally, adding a previously (in causality time) removed vertex should NOT
+    restore the previously cascaded edge deletions.
+    """
+
     @property
     @abstractmethod
     def vertices(self) -> Iterable[T]:
@@ -29,14 +40,18 @@ class LWWGraph(Protocol[T]):
     def __contains__(self, item: Union[T, Edge[T]]) -> bool:
         ...
 
-    def add_vertex(self, vertex: T) -> LWWGraphOperation[T]:
+    def add_vertex(self, vertex: T, ts: Optional[int] = None) -> LWWGraphOperation[T]:
         ...
 
-    def add_edge(self, edge: Edge[T]) -> LWWGraphOperation[T]:
+    def add_edge(self, edge: Edge[T], ts: Optional[int] = None) -> LWWGraphOperation[T]:
         ...
 
-    def remove_vertex(self, vertex: T) -> LWWGraphOperation[T]:
+    def remove_vertex(
+        self, vertex: T, ts: Optional[int] = None
+    ) -> LWWGraphOperation[T]:
         ...
 
-    def remove_edge(self, edge: Edge[T]) -> LWWGraphOperation[T]:
+    def remove_edge(
+        self, edge: Edge[T], ts: Optional[int] = None
+    ) -> LWWGraphOperation[T]:
         ...
